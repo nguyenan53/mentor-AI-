@@ -1,0 +1,33 @@
+project: mentor-ai-ann
+version: 1
+invariants:
+  - id: INV-001
+    severity: critical
+    statement: ANN Guardian and persisted project truth are authoritative over worker suggestions.
+  - id: INV-002
+    severity: critical
+    statement: AI workers cannot directly rewrite the master plan or core invariants.
+  - id: INV-003
+    severity: critical
+    statement: Workers cannot directly modify or merge the main branch.
+  - id: INV-004
+    severity: critical
+    statement: Every meaningful code change must be Git-traceable and attributable to a task.
+  - id: INV-005
+    severity: critical
+    statement: Passing tests never authorize an architecture or invariant violation.
+  - id: INV-006
+    severity: high
+    statement: Project state and decisions must survive model, session, IDE, and runtime restarts.
+  - id: INV-007
+    severity: high
+    statement: Deterministic verification must run before premium-model escalation.
+  - id: INV-008
+    severity: high
+    statement: Runtime providers and AI models must be replaceable adapters.
+  - id: INV-009
+    severity: high
+    statement: Secrets cannot be committed, logged, or embedded into model prompts.
+  - id: INV-010
+    severity: high
+    statement: Architectural changes require explicit proposal and approval rather than silent worker drift.
