@@ -5,14 +5,39 @@ export type GuardianDecision =
   | 'ARCHITECTURE_REVIEW_REQUIRED'
   | 'BLOCKED';
 
+export const PROJECT_STATE_SCHEMA_VERSION = 1 as const;
+
+export type ProjectVerificationStatus = 'NOT_RUN' | 'PASSED' | 'FAILED';
+
+export interface ProjectVerificationSummary {
+  status: ProjectVerificationStatus;
+  summary: string;
+}
+
 export interface ProjectState {
+  schemaVersion: typeof PROJECT_STATE_SCHEMA_VERSION;
   projectId: string;
   currentMilestone?: string;
   currentTaskId?: string;
   activeBranch?: string;
   activeWorktree?: string;
   workerSessionId?: string;
+  lastCheckpoint?: string;
+  verification: ProjectVerificationSummary;
   updatedAt: string;
+}
+
+export interface ProjectStateInput {
+  schemaVersion?: number;
+  projectId: string;
+  currentMilestone?: string;
+  currentTaskId?: string;
+  activeBranch?: string;
+  activeWorktree?: string;
+  workerSessionId?: string;
+  lastCheckpoint?: string;
+  verification: ProjectVerificationSummary;
+  updatedAt?: string;
 }
 
 export interface TaskDefinition {

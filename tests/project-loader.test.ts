@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { loadProject, ProjectLoadError } from '../src/core/project-loader.js';
+import { ProjectStateStore } from '../src/core/project-state-store.js';
 
 const tempRoots: string[] = [];
 
@@ -74,6 +75,25 @@ test('M1.1 malformed project state is never overwritten or repaired implicitly',
   );
 
   assert.equal(await readFile(statePath, 'utf8'), malformedState);
+});
+
+test('M1.2 Project Loader resolves project identity through the validated state store', async () => {
+  const root = await createFixture();
+  const store = new ProjectStateStore(root, {
+    now: () => new Date('2026-08-24T08:07:00.000Z'),
+  });
+  await store.save({
+    projectId: 'state-owned-project',
+    currentMilestone: 'M1',
+    currentTaskId: 'M1.2',
+    verification: { status: 'NOT_RUN', summary: 'Verification has not run yet.' },
+  });
+
+  const project = await loadProject(root);
+
+  assert.equal(project.projectId, 'state-owned-project');
+  assert.equal(project.projectIdSource, 'state');
+  assert.equal(project.stateFilePath, store.stateFilePath);
 });
 
 async function createBareRepository(): Promise<string> {

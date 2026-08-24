@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { access, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import {
+  ProjectStateError,
+  ProjectStateStore,
+  type ProjectStateErrorCode,
+} from './project-state-store.js';
 
 const REQUIRED_AUTHORITY_FILES = [
   '.ann/MASTER_PLAN.md',
@@ -24,7 +29,11 @@ export interface ProjectLoadIssue {
     | 'AUTHORITY_FILE_EMPTY'
     | 'AUTHORITY_FILE_INVALID'
     | 'STATE_JSON_INVALID'
-    | 'STATE_PROJECT_ID_INVALID';
+    | 'STATE_PROJECT_ID_INVALID'
+    | 'STATE_SCHEMA_INVALID'
+    | 'STATE_VERSION_UNSUPPORTED'
+    | 'STATE_SECRET_REJECTED'
+    | 'STATE_READ_FAILED';
   path: string;
   message: string;
 }
@@ -63,10 +72,6 @@ export interface LoadedProject {
   annDirectoryPath: string;
   authority: Record<AuthorityRelativePath, AuthorityDocument>;
   stateFilePath?: string;
-}
-
-interface PersistedProjectStateCandidate {
-  projectId?: unknown;
 }
 
 export async function loadProject(startPath: string): Promise<LoadedProject> {
@@ -236,52 +241,36 @@ function isAuthorityDocumentStructurallyValid(
 async function readOptionalProjectState(
   repositoryRoot: string,
 ): Promise<{ projectId?: string; stateFilePath?: string }> {
-  const stateFilePath = join(repositoryRoot, '.ann', 'PROJECT_STATE.json');
-  if (!(await exists(stateFilePath))) {
-    return {};
-  }
-
-  const rawState = await readFile(stateFilePath, 'utf8');
-  let parsed: PersistedProjectStateCandidate;
-
+  const store = new ProjectStateStore(repositoryRoot);
   try {
-    parsed = JSON.parse(rawState) as PersistedProjectStateCandidate;
-  } catch {
+    const state = await store.load();
+    return state ? { projectId: state.projectId, stateFilePath: store.stateFilePath } : {};
+  } catch (error) {
+    if (!(error instanceof ProjectStateError)) throw error;
+
     throw new ProjectLoadError(
       'STATE_MALFORMED',
-      `Project state JSON is malformed: ${stateFilePath}`,
-      [
-        {
-          code: 'STATE_JSON_INVALID',
-          path: stateFilePath,
-          message: 'PROJECT_STATE.json could not be parsed as JSON. The file was not modified.',
-        },
-      ],
+      `Project state is invalid: ${store.stateFilePath}`,
+      error.issues.map((issue) => ({
+        code: toProjectLoadIssueCode(issue.code),
+        path: issue.path,
+        message: issue.message,
+      })),
     );
   }
+}
 
-  if (
-    parsed.projectId !== undefined &&
-    (typeof parsed.projectId !== 'string' || normalizeProjectId(parsed.projectId).length === 0)
-  ) {
-    throw new ProjectLoadError(
-      'STATE_MALFORMED',
-      `Project state contains an invalid projectId: ${stateFilePath}`,
-      [
-        {
-          code: 'STATE_PROJECT_ID_INVALID',
-          path: stateFilePath,
-          message: 'projectId must be a non-empty string when present. The file was not modified.',
-        },
-      ],
-    );
+function toProjectLoadIssueCode(code: ProjectStateErrorCode): ProjectLoadIssue['code'] {
+  switch (code) {
+    case 'STATE_JSON_INVALID':
+    case 'STATE_SCHEMA_INVALID':
+    case 'STATE_VERSION_UNSUPPORTED':
+    case 'STATE_SECRET_REJECTED':
+    case 'STATE_READ_FAILED':
+      return code;
+    default:
+      return 'STATE_SCHEMA_INVALID';
   }
-
-  return {
-    projectId:
-      typeof parsed.projectId === 'string' ? normalizeProjectId(parsed.projectId) : undefined,
-    stateFilePath,
-  };
 }
 
 async function readOptionalPackageMetadata(
