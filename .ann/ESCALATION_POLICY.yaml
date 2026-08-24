@@ -1,0 +1,113 @@
+version: 1
+policy: ann-mentor-escalation
+
+principles:
+  - deterministic_checks_first
+  - gemini_is_primary_worker
+  - gpt_is_optional_mentor
+  - no_secret_leakage
+  - no_silent_governance_change
+
+thresholds:
+  repeated_worker_failure_count: 3
+  high_drift_score: 80
+  critical_drift_score: 95
+  max_mentor_packet_kb: 64
+  max_log_excerpt_lines: 200
+  max_diff_excerpt_lines: 600
+
+triggers:
+  - id: ESC-001
+    severity: high
+    condition: worker_repair_failures_gte_threshold
+    action: mentor_packet
+
+  - id: ESC-002
+    severity: critical
+    condition: core_invariant_conflict
+    action: mentor_packet_and_user_approval
+
+  - id: ESC-003
+    severity: critical
+    condition: protected_project_truth_change_requested
+    action: architecture_proposal_and_user_approval
+
+  - id: ESC-004
+    severity: high
+    condition: architecture_drift_score_gte_high_threshold
+    action: mentor_packet
+
+  - id: ESC-005
+    severity: critical
+    condition: architecture_drift_score_gte_critical_threshold
+    action: block_and_mentor_packet
+
+  - id: ESC-006
+    severity: critical
+    condition: security_sensitive_or_secret_boundary_change
+    action: block_and_mentor_packet
+
+  - id: ESC-007
+    severity: high
+    condition: destructive_change_with_ambiguous_requirements
+    action: block_and_user_or_mentor_review
+
+  - id: ESC-008
+    severity: info
+    condition: explicit_user_request
+    action: mentor_packet
+
+non_triggers:
+  - normal_file_change
+  - passing_routine_tests
+  - formatting_only_change
+  - worker_progress_event
+  - recoverable_process_restart
+  - low_risk_lint_fix
+
+packet_required_fields:
+  - packet_id
+  - project_id
+  - task_id
+  - milestone
+  - objective
+  - escalation_reason
+  - relevant_authority
+  - affected_symbols
+  - verification_results
+  - worker_diagnosis
+  - guardian_assessment
+  - explicit_question
+  - allowed_actions
+  - prohibited_actions
+
+redaction:
+  block_patterns:
+    - api_key
+    - access_token
+    - refresh_token
+    - password
+    - authorization_header
+    - cookie
+    - private_key
+    - signing_secret
+    - env_file_contents
+  prefer_relative_paths: true
+  include_unrelated_source: false
+
+mentor_decision:
+  default_authority: advisory
+  requires_user_approval_for:
+    - master_plan_change
+    - core_invariant_change
+    - approved_adr_reversal
+    - destructive_data_migration
+    - main_branch_direct_change
+  must_link_to_original_packet: true
+  must_be_auditable: true
+
+failure_behavior:
+  mentor_unavailable: continue_ann_without_mentor
+  url_open_failed: keep_packet_and_allow_manual_copy
+  invalid_mentor_response: request_manual_review
+  api_adapter_failed: fall_back_to_manual_v1
