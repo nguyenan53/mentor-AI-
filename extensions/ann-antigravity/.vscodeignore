@@ -1,0 +1,16 @@
+.gitignore
+.vscodeignore
+node_modules/**
+out/**
+scripts/**
+src/**
+test/**
+tsconfig.json
+package-lock.json
+dist/test/**
+dist/**/*.d.ts
+dist/**/*.map
+**/*.ts
+**/.env
+**/.env.*
+**/fixtures/**

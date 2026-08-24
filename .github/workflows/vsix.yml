@@ -1,0 +1,67 @@
+name: ANN Antigravity VSIX
+
+on:
+  pull_request:
+    paths:
+      - "extensions/ann-antigravity/**"
+      - ".github/workflows/vsix.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "extensions/ann-antigravity/**"
+      - ".github/workflows/vsix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-vsix:
+    name: Verify VSIX (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    defaults:
+      run:
+        working-directory: extensions/ann-antigravity
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: extensions/ann-antigravity/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Package VSIX
+        run: npm run package:vsix
+
+      - name: Verify packaged VSIX
+        run: npm run verify:vsix
+
+      - name: Upload installable VSIX
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ann-antigravity-vsix
+          path: extensions/ann-antigravity/out/ann-guardian-control-room-0.1.0.vsix
+          if-no-files-found: error

@@ -1,0 +1,115 @@
+{
+  "name": "ann-guardian-control-room",
+  "displayName": "ANN Guardian Control Room",
+  "description": "Read-only ANN project state and authority control room for Antigravity IDE and VS Code.",
+  "version": "0.1.0",
+  "publisher": "nguyenan53",
+  "private": true,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nguyenan53/mentor-AI-.git",
+    "directory": "extensions/ann-antigravity"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ann",
+    "guardian",
+    "antigravity",
+    "control-room"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/src/extension.js",
+  "activationEvents": [
+    "workspaceContains:.ann/MASTER_PLAN.md"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "annGuardian.refresh",
+        "title": "ANN: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "annGuardian.openMasterPlan",
+        "title": "ANN: Open Master Plan"
+      },
+      {
+        "command": "annGuardian.openRules",
+        "title": "ANN: Open Rules"
+      },
+      {
+        "command": "annGuardian.openCoreInvariants",
+        "title": "ANN: Open Core Invariants"
+      },
+      {
+        "command": "annGuardian.openArchitecture",
+        "title": "ANN: Open Architecture"
+      },
+      {
+        "command": "annGuardian.openProjectState",
+        "title": "ANN: Open Project State"
+      },
+      {
+        "command": "annGuardian.runVerification",
+        "title": "ANN: Run Verification",
+        "icon": "$(run)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "annGuardian",
+          "title": "ANN",
+          "icon": "media/ann.svg"
+        }
+      ]
+    },
+    "views": {
+      "annGuardian": [
+        {
+          "id": "annGuardian.controlRoom",
+          "name": "Control Room"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "annGuardian.refresh",
+          "when": "view == annGuardian.controlRoom",
+          "group": "navigation@1"
+        },
+        {
+          "command": "annGuardian.runVerification",
+          "when": "view == annGuardian.controlRoom",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "check": "npm run typecheck && npm run compile && npm test",
+    "prepackage:vsix": "node scripts/prepare-out.mjs",
+    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.1.0.vsix",
+    "verify:vsix": "node scripts/verify-vsix.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "3.9.2",
+    "jszip": "3.10.1",
+    "typescript": "^5.9.0"
+  }
+}
