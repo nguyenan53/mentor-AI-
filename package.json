@@ -7,8 +7,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/**/*.test.js",
-    "check": "npm run typecheck"
+    "test": "node --test dist/tests/guardian.test.js",
+    "check": "npm run typecheck && npm run build && npm test"
   },
   "engines": {
     "node": ">=20"
