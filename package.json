@@ -1,0 +1,20 @@
+{
+  "name": "mentor-ai-ann",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ANN Guardian: master-plan driven AI coding supervision and orchestration foundation.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/tests/guardian.test.js",
+    "check": "npm run typecheck && npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
