@@ -1,8 +1,8 @@
 {
   "name": "ann-guardian-control-room",
-  "displayName": "ANN Guardian Control Room",
-  "description": "Read-only ANN project state and authority control room for Antigravity IDE and VS Code.",
-  "version": "0.1.0",
+  "displayName": "ANN Guardian Home",
+  "description": "User-first ANN current context and explicit local actions for Antigravity IDE and VS Code.",
+  "version": "0.2.0",
   "publisher": "nguyenan53",
   "private": true,
   "license": "UNLICENSED",
@@ -22,13 +22,15 @@
     "ann",
     "guardian",
     "antigravity",
-    "control-room"
+    "control-room",
+    "home"
   ],
   "extensionKind": [
     "workspace"
   ],
   "main": "./dist/src/extension.js",
   "activationEvents": [
+    "onView:annGuardian.controlRoom",
     "workspaceContains:.ann/MASTER_PLAN.md"
   ],
   "contributes": {
@@ -59,6 +61,22 @@
         "title": "ANN: Open Project State"
       },
       {
+        "command": "annGuardian.openProject",
+        "title": "ANN: Open Project"
+      },
+      {
+        "command": "annGuardian.configureUserProfile",
+        "title": "ANN: Configure Local User Label"
+      },
+      {
+        "command": "annGuardian.configureChatGptMentor",
+        "title": "ANN: Configure ChatGPT Mentor Link"
+      },
+      {
+        "command": "annGuardian.openChatGptMentor",
+        "title": "ANN: Open ChatGPT Mentor"
+      },
+      {
         "command": "annGuardian.runVerification",
         "title": "ANN: Run Verification",
         "icon": "$(run)"
@@ -77,7 +95,7 @@
       "annGuardian": [
         {
           "id": "annGuardian.controlRoom",
-          "name": "Control Room"
+          "name": "Home"
         }
       ]
     },
@@ -102,7 +120,7 @@
     "test": "node scripts/run-tests.mjs",
     "check": "npm run typecheck && npm run compile && npm test",
     "prepackage:vsix": "node scripts/prepare-out.mjs",
-    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.1.0.vsix",
+    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.2.0.vsix",
     "verify:vsix": "node scripts/verify-vsix.mjs"
   },
   "devDependencies": {

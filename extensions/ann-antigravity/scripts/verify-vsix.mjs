@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const artifactPath = join(extensionRoot, 'out', 'ann-guardian-control-room-0.1.0.vsix');
+const artifactPath = join(extensionRoot, 'out', 'ann-guardian-control-room-0.2.0.vsix');
 const artifactStat = await stat(artifactPath);
 
 assert.ok(artifactStat.isFile(), 'Expected VSIX artifact is not a file.');
@@ -21,7 +21,28 @@ const manifest = JSON.parse(await manifestEntry.async('string'));
 const normalizedMain = String(manifest.main ?? '').replace(/^\.\//, '').replaceAll('\\', '/');
 
 assert.equal(manifest.name, 'ann-guardian-control-room');
-assert.equal(manifest.version, '0.1.0');
+assert.equal(manifest.version, '0.2.0');
+assert.equal(manifest.displayName, 'ANN Guardian Home');
+assert.ok(
+  manifest.activationEvents?.includes('onView:annGuardian.controlRoom'),
+  'UX0 Home view does not have an explicit activation event.',
+);
+assert.equal(
+  manifest.contributes?.views?.annGuardian?.find((view) => view.id === 'annGuardian.controlRoom')?.name,
+  'Home',
+);
+const contributedCommands = new Set(
+  (manifest.contributes?.commands ?? []).map((command) => command.command),
+);
+for (const requiredCommand of [
+  'annGuardian.configureUserProfile',
+  'annGuardian.configureChatGptMentor',
+  'annGuardian.openChatGptMentor',
+  'annGuardian.openProject',
+  'annGuardian.runVerification',
+]) {
+  assert.ok(contributedCommands.has(requiredCommand), `VSIX is missing UX0 command: ${requiredCommand}`);
+}
 assert.ok(normalizedMain, 'Extension manifest does not declare a main entrypoint.');
 assert.ok(
   archivePaths.includes(`extension/${normalizedMain}`),

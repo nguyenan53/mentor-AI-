@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export type ProjectStateReadStatus = "valid" | "missing" | "malformed" | "unavailable";
-export type VerificationDisplayStatus = "PASSED" | "FAILED" | "NOT_RUN" | "UNKNOWN";
+export type VerificationDisplayStatus = "PASSED" | "FAILED" | "NOT_RUN" | "UNAVAILABLE";
 
 export interface ProjectStateDisplay {
   readonly status: ProjectStateReadStatus;
@@ -10,6 +10,7 @@ export interface ProjectStateDisplay {
   readonly projectName: string;
   readonly milestone: string;
   readonly task: string;
+  readonly taskStatus?: string;
   readonly activeBranch?: string;
   readonly verification: VerificationDisplayStatus;
   readonly verificationSummary?: string;
@@ -38,7 +39,7 @@ function optionalDisplayString(value: unknown): string | undefined {
 }
 
 function verificationStatus(value: unknown): VerificationDisplayStatus {
-  return value === "PASSED" || value === "FAILED" || value === "NOT_RUN" ? value : "UNKNOWN";
+  return value === "PASSED" || value === "FAILED" || value === "NOT_RUN" ? value : "UNAVAILABLE";
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -75,10 +76,10 @@ export async function readProjectState(
         status: "missing",
         statePath,
         projectName: fallbackName,
-        milestone: "unknown",
-        task: "unknown",
-        verification: "UNKNOWN",
-        message: "state not initialized",
+        milestone: "Not set — initialize through ANN Core",
+        task: "No current task — initialize through ANN Core",
+        verification: "UNAVAILABLE",
+        message: "State not initialized — initialize PROJECT_STATE.json through ANN Core.",
       };
     }
 
@@ -86,10 +87,10 @@ export async function readProjectState(
       status: "unavailable",
       statePath,
       projectName: fallbackName,
-      milestone: "unknown",
-      task: "unknown",
-      verification: "UNKNOWN",
-      message: "state unavailable",
+      milestone: "Unavailable — inspect through ANN Core",
+      task: "Unavailable — inspect through ANN Core",
+      verification: "UNAVAILABLE",
+      message: "State unavailable — inspect PROJECT_STATE.json through ANN Core.",
     };
   }
 
@@ -101,10 +102,10 @@ export async function readProjectState(
       status: "malformed",
       statePath,
       projectName: fallbackName,
-      milestone: "unknown",
-      task: "unknown",
-      verification: "UNKNOWN",
-      message: "state malformed",
+      milestone: "Unavailable — repair through ANN Core",
+      task: "Unavailable — repair through ANN Core",
+      verification: "UNAVAILABLE",
+      message: "State malformed — repair PROJECT_STATE.json through ANN Core.",
     };
   }
 
@@ -113,20 +114,26 @@ export async function readProjectState(
       status: "malformed",
       statePath,
       projectName: fallbackName,
-      milestone: "unknown",
-      task: "unknown",
-      verification: "UNKNOWN",
-      message: "state malformed",
+      milestone: "Unavailable — repair through ANN Core",
+      task: "Unavailable — repair through ANN Core",
+      verification: "UNAVAILABLE",
+      message: "State malformed — repair PROJECT_STATE.json through ANN Core.",
     };
   }
 
   const verification = isRecord(parsed.verification) ? parsed.verification : undefined;
+  const currentTaskId = optionalDisplayString(parsed.currentTaskId);
+  const taskStates = isRecord(parsed.taskStates) ? parsed.taskStates : undefined;
+  const currentTask = currentTaskId && isRecord(taskStates?.[currentTaskId])
+    ? taskStates[currentTaskId]
+    : undefined;
   return {
     status: "valid",
     statePath,
     projectName: displayString(parsed.projectId, fallbackName),
-    milestone: displayString(parsed.currentMilestone, "unknown"),
-    task: displayString(parsed.currentTaskId, "unknown"),
+    milestone: displayString(parsed.currentMilestone, "Not set — select through ANN Core"),
+    task: currentTaskId ?? "No current task — select through ANN Core",
+    taskStatus: optionalDisplayString(currentTask?.status),
     activeBranch: optionalDisplayString(parsed.activeBranch),
     verification: verificationStatus(verification?.status),
     verificationSummary: optionalDisplayString(verification?.summary),
