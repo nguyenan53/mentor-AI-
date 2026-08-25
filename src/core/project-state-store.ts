@@ -8,6 +8,7 @@ import {
   type ProjectVerificationSummary,
   type ProjectVerificationStatus,
 } from '../domain/types.js';
+import { validateTaskStates } from './task-state-schema.js';
 
 export type ProjectStateErrorCode =
   | 'STATE_NOT_FOUND'
@@ -65,6 +66,7 @@ const PROJECT_STATE_KEYS = new Set([
   'activeWorktree',
   'workerSessionId',
   'lastCheckpoint',
+  'taskStates',
   'verification',
   'updatedAt',
 ]);
@@ -320,6 +322,24 @@ function validateProjectState(
   }
 
   const verification = validateVerification(candidate.verification, stateFilePath, issues, mode);
+  const taskStateValidation = validateTaskStates(candidate.taskStates, mode);
+  for (const taskIssue of taskStateValidation.issues) {
+    issues.push(schemaIssue(stateFilePath, taskIssue.field, taskIssue.message));
+  }
+  const taskStates = taskStateValidation.value;
+  if (
+    taskStates &&
+    optionalValues.currentTaskId &&
+    !Object.prototype.hasOwnProperty.call(taskStates, optionalValues.currentTaskId)
+  ) {
+    issues.push(
+      schemaIssue(
+        stateFilePath,
+        '$.currentTaskId',
+        'currentTaskId must reference a persisted task when taskStates is present.',
+      ),
+    );
+  }
 
   let persistedUpdatedAt: string | undefined;
   if (candidate.updatedAt !== undefined) {
@@ -347,6 +367,7 @@ function validateProjectState(
     schemaVersion: PROJECT_STATE_SCHEMA_VERSION,
     projectId,
     ...optionalValues,
+    ...(taskStates ? { taskStates } : {}),
     verification,
     updatedAt,
   };
@@ -466,7 +487,8 @@ function findCredentialMaterialAt(
 
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
-    if (isCredentialLikeField(key)) return childPath;
+    // taskStates keys are task IDs, not schema field names. Nested task data is still scanned normally.
+    if (path !== '$.taskStates' && isCredentialLikeField(key)) return childPath;
 
     const nestedMatch = findCredentialMaterialAt(child, childPath, visited);
     if (nestedMatch) return nestedMatch;

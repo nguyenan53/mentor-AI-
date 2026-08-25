@@ -1,3 +1,5 @@
+import type { TaskState } from './task-state.js';
+
 export type GuardianDecision =
   | 'PASS'
   | 'WARNING'
@@ -23,6 +25,7 @@ export interface ProjectState {
   activeWorktree?: string;
   workerSessionId?: string;
   lastCheckpoint?: string;
+  taskStates?: Record<string, TaskState>;
   verification: ProjectVerificationSummary;
   updatedAt: string;
 }
@@ -36,6 +39,7 @@ export interface ProjectStateInput {
   activeWorktree?: string;
   workerSessionId?: string;
   lastCheckpoint?: string;
+  taskStates?: Record<string, TaskState>;
   verification: ProjectVerificationSummary;
   updatedAt?: string;
 }
