@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 
-import { ControlRoomSnapshot } from "./view-model";
+import { ControlRoomSnapshot, formatTaskStatus } from "./view-model";
 
 export class AnnStatusBar implements vscode.Disposable {
   private readonly item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 
   public constructor() {
     this.item.command = "annGuardian.refresh";
-    this.item.name = "ANN Guardian Control Room";
+    this.item.name = "ANN Home";
   }
 
   public update(snapshot: ControlRoomSnapshot): void {
@@ -24,10 +24,11 @@ export class AnnStatusBar implements vscode.Disposable {
     } else if (state.status === "unavailable") {
       this.item.text = "$(warning) ANN: detected | state unavailable";
     } else {
-      this.item.text = `$(shield) ANN: ${state.milestone} | Task ${state.task} | Verify: ${state.verification}`;
+      const taskStatus = state.taskStatus ? ` • ${formatTaskStatus(state.taskStatus)}` : "";
+      this.item.text = `$(home) ANN: ${state.task}${taskStatus} | Verify: ${state.verification}`;
     }
 
-    this.item.tooltip = `ANN Guardian Control Room\n${projectRoot}`;
+    this.item.tooltip = `ANN Home\n${state.projectName}\n${projectRoot}`;
     this.item.show();
   }
 

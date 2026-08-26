@@ -27,6 +27,15 @@ test("reads valid project state for display", async () => {
     currentMilestone: "M1",
     currentTaskId: "M1.3",
     activeBranch: "feat/example",
+    taskStates: {
+      "M1.3": {
+        taskId: "M1.3",
+        status: "COMPLETE",
+        createdAt: "2026-08-24T00:00:00.000Z",
+        updatedAt: "2026-08-24T01:00:00.000Z",
+        transitions: [],
+      },
+    },
     verification: { status: "PASSED", summary: "all deterministic checks passed" },
     updatedAt: "2026-08-24T00:00:00.000Z",
   }), "utf8");
@@ -36,6 +45,7 @@ test("reads valid project state for display", async () => {
   assert.equal(state.projectName, "mentor-ai-ann");
   assert.equal(state.milestone, "M1");
   assert.equal(state.task, "M1.3");
+  assert.equal(state.taskStatus, "COMPLETE");
   assert.equal(state.activeBranch, "feat/example");
   assert.equal(state.verification, "PASSED");
 });
@@ -47,6 +57,7 @@ test("handles missing state without creating it", async () => {
 
   assert.equal(state.status, "missing");
   assert.equal(state.projectName, "fallback-project");
+  assert.doesNotMatch(`${state.milestone} ${state.task} ${state.message}`, /\bunknown\b/i);
   await assert.rejects(access(missingPath));
 });
 

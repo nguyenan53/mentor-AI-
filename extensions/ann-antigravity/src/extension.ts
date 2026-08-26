@@ -2,10 +2,12 @@ import * as vscode from "vscode";
 
 import { AnnTreeProvider } from "./ann-tree-provider";
 import { registerCommands } from "./commands";
-import { readBranch } from "./git-branch";
+import { readGitContext } from "./git-branch";
 import { chooseAnnProjectRoot, detectAnnProjectRoots } from "./project-detector";
 import { readProjectState } from "./state-reader";
 import { AnnStatusBar } from "./status-bar";
+import { describeTerminalReadiness } from "./terminal-readiness";
+import { readChatGptMentorLink, readLocalUserProfile } from "./user-settings";
 import { WATCHED_ANN_PATHS } from "./ann-files";
 import { ControlRoomSnapshot } from "./view-model";
 
@@ -14,10 +16,14 @@ class AnnControlRoom implements vscode.Disposable {
   private readonly statusBar = new AnnStatusBar();
   private readonly disposables: vscode.Disposable[] = [];
   private watchers: vscode.FileSystemWatcher[] = [];
-  private currentSnapshot: ControlRoomSnapshot = {};
+  private currentSnapshot: ControlRoomSnapshot;
   private debounceTimer: NodeJS.Timeout | undefined;
 
   public constructor(private readonly context: vscode.ExtensionContext) {
+    this.currentSnapshot = {
+      profile: readLocalUserProfile(context.globalState),
+      terminal: describeTerminalReadiness(undefined, vscode.env.shell),
+    };
     this.disposables.push(
       this.treeProvider,
       this.statusBar,
@@ -30,7 +36,7 @@ class AnnControlRoom implements vscode.Disposable {
     );
     this.rebuildWatchers();
     registerCommands(context, {
-      getProjectRoot: () => this.currentSnapshot.projectRoot,
+      getSnapshot: () => this.currentSnapshot,
       refresh: () => this.refresh(),
     });
   }
@@ -43,11 +49,23 @@ class AnnControlRoom implements vscode.Disposable {
       : undefined;
     const projectRoot = chooseAnnProjectRoot(detectedRoots, activeFile);
 
-    let snapshot: ControlRoomSnapshot = {};
+    const profile = readLocalUserProfile(this.context.globalState);
+    let snapshot: ControlRoomSnapshot = {
+      profile,
+      terminal: describeTerminalReadiness(undefined, vscode.env.shell),
+    };
     if (projectRoot) {
       const state = await readProjectState(projectRoot);
-      const branch = await readBranch(projectRoot, state.activeBranch);
-      snapshot = { projectRoot, state, branch };
+      const git = await readGitContext(projectRoot, state.activeBranch);
+      const mentorLink = readChatGptMentorLink(this.context.globalState, projectRoot);
+      snapshot = {
+        projectRoot,
+        state,
+        git,
+        profile,
+        mentorLink,
+        terminal: describeTerminalReadiness(projectRoot, vscode.env.shell),
+      };
     }
 
     this.currentSnapshot = snapshot;
