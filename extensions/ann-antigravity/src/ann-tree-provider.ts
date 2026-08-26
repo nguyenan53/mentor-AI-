@@ -1,71 +1,23 @@
 import * as vscode from "vscode";
 
 import { ANN_FILES } from "./ann-files";
-import { ControlRoomSnapshot, formatTaskStatus, nextActionFor } from "./view-model";
+import { gptAccountById } from "./local-workspace";
+import { AnnTreeItem, commandItem, contextItem, treeCommand } from "./tree-items";
+import {
+  accountForCurrentProject,
+  currentChatGptProject,
+  formatTaskStatus,
+  nextActionFor,
+  type ControlRoomSnapshot,
+} from "./view-model";
 
-class AnnTreeItem extends vscode.TreeItem {
-  public readonly children: readonly AnnTreeItem[];
-
-  public constructor(
-    label: string,
-    children: readonly AnnTreeItem[] = [],
-    command?: vscode.Command,
-    description?: string,
-    tooltip?: string,
-    expanded = true,
-  ) {
-    super(
-      label,
-      children.length > 0
-        ? expanded
-          ? vscode.TreeItemCollapsibleState.Expanded
-          : vscode.TreeItemCollapsibleState.Collapsed
-        : vscode.TreeItemCollapsibleState.None,
-    );
-    this.children = children;
-    this.command = command;
-    this.description = description;
-    this.tooltip = tooltip;
-  }
-}
-
-function command(label: string, commandId: string): vscode.Command {
-  return { title: label, command: commandId };
-}
-
-function commandItem(label: string, commandId: string): AnnTreeItem {
-  return new AnnTreeItem(label, [], command(label, commandId));
-}
-
-function contextValue(
-  label: string,
-  description: string,
-  commandId?: string,
-  tooltip?: string,
-): AnnTreeItem {
-  return new AnnTreeItem(
-    label,
-    [],
-    commandId ? command(label, commandId) : undefined,
-    description,
-    tooltip,
-  );
-}
-
-export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem> {
+export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem>, vscode.Disposable {
   private readonly didChangeTreeData = new vscode.EventEmitter<AnnTreeItem | undefined | void>();
   public readonly onDidChangeTreeData = this.didChangeTreeData.event;
   private snapshot: ControlRoomSnapshot;
 
-  public constructor() {
-    this.snapshot = {
-      profile: {},
-      terminal: {
-        shellLabel: "No project root",
-        status: "unavailable",
-        description: "Open an ANN project to establish the terminal root.",
-      },
-    };
+  public constructor(initialSnapshot: ControlRoomSnapshot) {
+    this.snapshot = initialSnapshot;
   }
 
   public update(snapshot: ControlRoomSnapshot): void {
@@ -78,132 +30,194 @@ export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem> {
   }
 
   public getChildren(element?: AnnTreeItem): AnnTreeItem[] {
-    if (element) {
-      return [...element.children];
-    }
+    if (element) return [...element.children];
 
-    const { projectRoot, state, git, profile, mentorLink, terminal } = this.snapshot;
-    const waitingForProject = "Waiting for an ANN project";
-    const currentContext: AnnTreeItem[] = [
-      contextValue(
-        "User",
+    const {
+      projectRoot,
+      state,
+      git,
+      profile,
+      terminal,
+      currentRegisteredProject,
+      currentProjectInspection,
+      localWorkspace,
+    } = this.snapshot;
+    const account = accountForCurrentProject(this.snapshot);
+    const mappedAccount = gptAccountById(localWorkspace, currentRegisteredProject?.gptAccountId);
+    const chatGptProject = currentChatGptProject(this.snapshot);
+
+    const userSection = new AnnTreeItem("USER", [
+      contextItem(
+        "Local user",
         profile.displayName ?? "Not configured — select to set locally",
         "annGuardian.configureUserProfile",
         "Stored only in VS Code extension global state.",
       ),
-      contextValue(
-        "Project",
-        state?.projectName ?? "No ANN project detected — open an ANN folder",
-        projectRoot ? "annGuardian.openProject" : "workbench.action.files.openFolder",
+      commandItem("Open Account Center", "annGuardian.accountCenter.focus"),
+    ]);
+
+    const gptAccountSection = new AnnTreeItem(
+      "GPT WEB ACCOUNT",
+      account
+        ? [
+            contextItem("Account label", account.label, "annGuardian.accountCenter.focus"),
+            contextItem(
+              "Browser login",
+              account.browserLoginConfirmedAt ? "User confirmed" : "Not confirmed — use Login GPT",
+              account.browserLoginConfirmedAt ? undefined : "annGuardian.loginGpt",
+            ),
+            contextItem("ANN verification", "NOT VERIFIED BY ANN"),
+            contextItem(
+              "Project mapping",
+              mappedAccount
+                ? "Mapped to current ANN project"
+                : currentRegisteredProject
+                  ? "Not mapped — select a local account context"
+                  : "Register the current project to store a mapping",
+              currentRegisteredProject ? "annGuardian.mapProjectGptAccount" : undefined,
+              undefined,
+              currentRegisteredProject?.projectId,
+            ),
+          ]
+        : [
+            contextItem(
+              "Status",
+              "No GPT account context configured — select to login",
+              "annGuardian.loginGpt",
+              "ANN opens ChatGPT in your browser but never reads the browser session.",
+            ),
+          ],
+    );
+
+    const annProjectSection = projectRoot
+      ? new AnnTreeItem("CURRENT ANN PROJECT", [
+          contextItem("Project", state?.projectName ?? currentRegisteredProject?.projectName ?? "Project name unavailable"),
+          contextItem("Root", projectRoot, "annGuardian.openProject", projectRoot),
+          contextItem(
+            "Personal registry",
+            currentRegisteredProject ? "Registered in My Projects" : "Not registered — select to add locally",
+            currentRegisteredProject ? "annGuardian.projects.focus" : "annGuardian.registerCurrentProject",
+          ),
+          contextItem(
+            git?.repository.providerLabel ?? "Repository",
+            git?.repository.name ?? "Not detected — add a remote with Git tools",
+          ),
+          contextItem("Branch", git?.branch.name ?? "Not detected — open this project as a Git repository"),
+          contextItem(
+            "Terminal",
+            `${terminal.shellLabel} • ${terminal.status === "ready" ? "Ready" : "Not ready"}`,
+            undefined,
+            terminal.description,
+          ),
+        ])
+      : new AnnTreeItem("CURRENT ANN PROJECT", [
+          contextItem(
+            "Status",
+            "No ANN project selected — open an existing project or start the wizard",
+            "annGuardian.openExistingProject",
+          ),
+          commandItem("Open My Projects", "annGuardian.projects.focus"),
+          commandItem("New Personal Project", "annGuardian.newPersonalProject"),
+        ]);
+
+    const chatGptSection = new AnnTreeItem(
+      "CHATGPT PROJECT",
+      projectRoot
+        ? chatGptProject
+          ? [
+              contextItem("Project label", chatGptProject.label),
+              contextItem("Project URL", chatGptProject.url, "annGuardian.openCurrentProjectChatGptLink", chatGptProject.url),
+              contextItem("State", "CONFIGURED — NOT VERIFIED"),
+              commandItem("Change Link", "annGuardian.configureProjectChatGptLink", currentRegisteredProject?.projectId),
+            ]
+          : [
+              contextItem(
+                "Status",
+                currentRegisteredProject
+                  ? "No ChatGPT Project linked — select to configure"
+                  : "Register this ANN project before linking ChatGPT",
+                currentRegisteredProject
+                  ? "annGuardian.configureProjectChatGptLink"
+                  : "annGuardian.registerCurrentProject",
+                undefined,
+                currentRegisteredProject?.projectId,
+              ),
+            ]
+        : [contextItem("Status", "Waiting for an ANN project")],
+    );
+
+    const masterPlanSection = new AnnTreeItem("MASTER PLAN", [
+      contextItem(
+        "Status",
+        currentProjectInspection?.masterPlanLabel ?? "No ANN project selected",
+        currentProjectInspection?.status === "ready" ? "annGuardian.openMasterPlan" : undefined,
+        currentProjectInspection?.status === "ready"
+          ? "The authority marker exists. This is not a Guardian decision."
+          : "UX0.5 never creates or overwrites project governance.",
       ),
-      contextValue(
-        "Root",
-        projectRoot ?? "Open a folder containing .ann/MASTER_PLAN.md",
-        projectRoot ? "annGuardian.openProject" : "workbench.action.files.openFolder",
-        projectRoot,
-      ),
-      contextValue(
-        git?.repository.providerLabel ?? "Repository",
-        git?.repository.name ?? waitingForProject,
-        undefined,
-        git?.repository.remoteName ? `Read-only Git remote: ${git.repository.remoteName}` : undefined,
-      ),
-      contextValue("Branch", git?.branch.name ?? waitingForProject),
-      contextValue(
-        "Master Plan",
-        projectRoot ? "Ready" : "Not detected — open an ANN project",
-        projectRoot ? "annGuardian.openMasterPlan" : "workbench.action.files.openFolder",
-        projectRoot
-          ? "The .ann/MASTER_PLAN.md authority marker is present. This is not a Guardian decision."
-          : undefined,
-      ),
-      contextValue(
-        "Task",
-        state
-          ? state.status === "valid" && state.taskStatus
-            ? `${state.task} • ${formatTaskStatus(state.taskStatus)}`
-            : state.message ?? state.task
-          : waitingForProject,
+    ]);
+
+    const taskDescription = state
+      ? state.status === "valid" && state.taskStatus
+        ? `${state.task} • ${formatTaskStatus(state.taskStatus)}`
+        : state.message ?? state.task
+      : "Waiting for an ANN project";
+    const taskSection = new AnnTreeItem("TASK", [
+      contextItem(
+        "Current task",
+        taskDescription,
         state?.status === "valid" ? "annGuardian.openProjectState" : undefined,
       ),
-      contextValue(
-        "Terminal",
-        `${terminal.shellLabel} • ${terminal.status === "ready" ? "Ready" : "Not ready"}`,
-        undefined,
-        terminal.description,
-      ),
-    ];
-
-    if (mentorLink) {
-      currentContext.push(
-        new AnnTreeItem(
-          "ChatGPT Mentor",
-          [
-            contextValue("Account label", mentorLink.accountLabel),
-            contextValue("Project label", mentorLink.projectLabel),
-            contextValue("Project URL", mentorLink.url, "annGuardian.openChatGptMentor", mentorLink.url),
-            contextValue("Status", "CONFIGURED — NOT VERIFIED"),
-          ],
-          undefined,
-          `${mentorLink.projectLabel} • CONFIGURED — NOT VERIFIED`,
-          "This is a manual local link. ANN does not inspect browser sign-in or authenticate ChatGPT.",
-          false,
-        ),
-      );
-    } else {
-      currentContext.push(
-        contextValue(
-          "ChatGPT Mentor",
-          projectRoot
-            ? "No project linked — select to configure"
-            : "Waiting for an ANN project",
-          projectRoot ? "annGuardian.configureChatGptMentor" : undefined,
-          "No browser account, cookies, or session data is inspected.",
-        ),
-      );
-    }
+    ]);
 
     const nextAction = nextActionFor(this.snapshot);
     const actions = [
-      commandItem(
-        profile.displayName ? "Edit Local User Label" : "Set Local User Label",
-        "annGuardian.configureUserProfile",
-      ),
+      commandItem("Open Account Center", "annGuardian.accountCenter.focus"),
+      commandItem("Open My Projects", "annGuardian.projects.focus"),
       ...(projectRoot
         ? [
             commandItem("Open Project", "annGuardian.openProject"),
-            commandItem(
-              mentorLink ? "Edit ChatGPT Mentor Link" : "Link ChatGPT Project",
-              "annGuardian.configureChatGptMentor",
-            ),
-            ...(mentorLink ? [commandItem("Open ChatGPT Mentor", "annGuardian.openChatGptMentor")] : []),
-            commandItem("Run Verification", "annGuardian.runVerification"),
+            ...(currentProjectInspection?.status === "ready"
+              ? [commandItem("Run Verification", "annGuardian.runVerification")]
+              : []),
+            ...(!currentRegisteredProject
+              ? [commandItem("Add Current Project to My Projects", "annGuardian.registerCurrentProject")]
+              : []),
           ]
-        : [commandItem("Open ANN Project Folder", "workbench.action.files.openFolder")]),
+        : [
+            commandItem("Open Existing ANN Project", "annGuardian.openExistingProject"),
+            commandItem("New Personal Project", "annGuardian.newPersonalProject"),
+          ]),
       commandItem("Refresh", "annGuardian.refresh"),
     ];
 
     return [
-      new AnnTreeItem("CURRENT CONTEXT", currentContext),
-      new AnnTreeItem(
-        "NEXT ACTION",
-        [
-          new AnnTreeItem(
-            nextAction.label,
-            [],
-            nextAction.command ? command(nextAction.label, nextAction.command) : undefined,
-          ),
-        ],
-      ),
+      userSection,
+      gptAccountSection,
+      annProjectSection,
+      chatGptSection,
+      masterPlanSection,
+      taskSection,
+      new AnnTreeItem("NEXT ACTION", [
+        new AnnTreeItem(
+          nextAction.label,
+          [],
+          nextAction.command ? treeCommand(nextAction.label, nextAction.command) : undefined,
+        ),
+      ]),
       new AnnTreeItem("ACTIONS", actions),
-      new AnnTreeItem(
-        "AUTHORITY & STATE",
-        ANN_FILES.map((file) => commandItem(`Open ${file.label}`, file.command)),
-        undefined,
-        "Read-only project files",
-        undefined,
-        false,
-      ),
+      ...(currentProjectInspection?.status === "ready"
+        ? [
+            new AnnTreeItem(
+              "AUTHORITY & STATE",
+              ANN_FILES.map((file) => commandItem(`Open ${file.label}`, file.command)),
+              undefined,
+              "Read-only project files",
+              undefined,
+              false,
+            ),
+          ]
+        : []),
     ];
   }
 

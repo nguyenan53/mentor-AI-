@@ -4,6 +4,15 @@ import path from "node:path";
 export const USER_PROFILE_STORAGE_KEY = "annGuardian.userProfile";
 const MENTOR_LINK_STORAGE_PREFIX = "annGuardian.chatGptMentor";
 const MAX_LABEL_LENGTH = 120;
+const CREDENTIAL_VALUE_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
+  /\bBearer\s+[A-Za-z0-9._~+/-]+=*/i,
+  /\b(?:sk|rk)-[A-Za-z0-9_-]{16,}\b/i,
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/i,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
+  /\b[^\s:@]+@[^\s:@]+:[^\s]+\b/,
+];
 
 export interface StorageReader {
   get<T>(key: string): T | undefined;
@@ -29,7 +38,10 @@ export function normalizeLocalLabel(value: unknown): string | undefined {
   }
 
   const normalized = value.replace(/[\u0000-\u001f\u007f]/g, " ").trim();
-  return normalized.length > 0 ? normalized.slice(0, MAX_LABEL_LENGTH) : undefined;
+  if (!normalized || CREDENTIAL_VALUE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return undefined;
+  }
+  return normalized.slice(0, MAX_LABEL_LENGTH);
 }
 
 export function normalizeChatGptUrl(value: unknown): string | undefined {
@@ -41,9 +53,16 @@ export function normalizeChatGptUrl(value: unknown): string | undefined {
     const parsed = new URL(value.trim());
     const hostname = parsed.hostname.toLowerCase();
     const isChatGptHost = hostname === "chatgpt.com"
-      || hostname.endsWith(".chatgpt.com")
+      || hostname === "www.chatgpt.com"
       || hostname === "chat.openai.com";
-    if (parsed.protocol !== "https:" || !isChatGptHost || parsed.username || parsed.password) {
+    if (
+      parsed.protocol !== "https:"
+      || !isChatGptHost
+      || parsed.username
+      || parsed.password
+      || parsed.search
+      || parsed.hash
+    ) {
       return undefined;
     }
 

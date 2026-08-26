@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ControlRoomSnapshot, formatTaskStatus, nextActionFor } from "../src/view-model";
+import { type LocalAnnProject, type LocalWorkspaceState } from "../src/local-workspace";
+import { type ControlRoomSnapshot, formatTaskStatus, nextActionFor } from "../src/view-model";
 
 const readyTerminal = {
   shellLabel: "PowerShell",
@@ -9,16 +10,39 @@ const readyTerminal = {
   description: "Ready. No command has been executed.",
 };
 
+const registeredProject: LocalAnnProject = {
+  projectId: "local-project-a",
+  projectName: "mentor-ai-ann",
+  projectRoot: "C:/Projects/mentor-AI-",
+  lastOpenedAt: "2026-08-26T00:00:00.000Z",
+  gptAccountId: "gpt-account-a",
+  chatGptProjectLabel: "ANN Mentor",
+  chatGptProjectUrl: "https://chatgpt.com/c/example",
+};
+
+const localWorkspace: LocalWorkspaceState = {
+  version: 1,
+  currentGptAccountId: "gpt-account-a",
+  gptAccounts: [{
+    id: "gpt-account-a",
+    label: "Bao - ChatGPT Business",
+    browserLoginConfirmedAt: "2026-08-26T00:00:00.000Z",
+  }],
+  projects: [registeredProject],
+};
+
 function completeSnapshot(overrides: Partial<ControlRoomSnapshot> = {}): ControlRoomSnapshot {
   return {
-    projectRoot: "C:/Projects/mentor-AI-",
+    projectRoot: registeredProject.projectRoot,
     profile: { displayName: "Bao" },
-    mentorLink: {
-      accountLabel: "Personal Plus",
-      projectLabel: "ANN Mentor",
-      url: "https://chatgpt.com/c/example",
-    },
     terminal: readyTerminal,
+    localWorkspace,
+    currentRegisteredProject: registeredProject,
+    currentProjectInspection: { status: "ready", masterPlanLabel: "Ready" },
+    registeredProjects: [{
+      project: registeredProject,
+      inspection: { status: "ready", masterPlanLabel: "Ready" },
+    }],
     state: {
       status: "valid",
       statePath: "C:/Projects/mentor-AI-/.ann/PROJECT_STATE.json",
@@ -39,16 +63,37 @@ test("turns a completed current task into a Core-owned next action", () => {
   assert.equal(formatTaskStatus("READY_TO_IMPLEMENT"), "Ready To Implement");
 });
 
-test("prioritizes actionable UX0 empty states", () => {
-  assert.equal(nextActionFor({ profile: {}, terminal: readyTerminal }).command, "workbench.action.files.openFolder");
-  assert.equal(
-    nextActionFor(completeSnapshot({ profile: {} })).command,
-    "annGuardian.configureUserProfile",
-  );
-  assert.equal(
-    nextActionFor(completeSnapshot({ mentorLink: undefined })).command,
-    "annGuardian.configureChatGptMentor",
-  );
+test("prioritizes safe identity and project empty states", () => {
+  const noWorkspace: LocalWorkspaceState = { version: 1, gptAccounts: [], projects: [] };
+  assert.equal(nextActionFor({
+    profile: {},
+    terminal: readyTerminal,
+    localWorkspace: noWorkspace,
+    registeredProjects: [],
+  }).command, "annGuardian.openExistingProject");
+  assert.equal(nextActionFor(completeSnapshot({ profile: {} })).command, "annGuardian.configureUserProfile");
+  assert.equal(nextActionFor(completeSnapshot({
+    localWorkspace: { version: 1, gptAccounts: [], projects: [] },
+    currentRegisteredProject: undefined,
+  })).command, "annGuardian.loginGpt");
+});
+
+test("makes registration and ChatGPT Project linking explicit", () => {
+  assert.equal(nextActionFor(completeSnapshot({ currentRegisteredProject: undefined })).command,
+    "annGuardian.registerCurrentProject");
+  const withoutLink: LocalAnnProject = {
+    ...registeredProject,
+    chatGptProjectLabel: undefined,
+    chatGptProjectUrl: undefined,
+  };
+  const noLinkWorkspace: LocalWorkspaceState = {
+    ...localWorkspace,
+    projects: [withoutLink],
+  };
+  assert.equal(nextActionFor(completeSnapshot({
+    localWorkspace: noLinkWorkspace,
+    currentRegisteredProject: withoutLink,
+  })).command, "annGuardian.configureProjectChatGptLink");
 });
 
 test("never advances blocked state and never invents the next Core unit", () => {
