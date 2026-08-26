@@ -5,6 +5,7 @@ import {
   USER_PROFILE_STORAGE_KEY,
   mentorLinkStorageKey,
   normalizeChatGptUrl,
+  normalizeLocalLabel,
   readChatGptMentorLink,
   readLocalUserProfile,
 } from "../src/user-settings";
@@ -50,4 +51,13 @@ test("accepts only credential-free HTTPS ChatGPT URLs", () => {
   assert.equal(normalizeChatGptUrl("http://chatgpt.com/c/example"), undefined);
   assert.equal(normalizeChatGptUrl("https://example.com/chatgpt"), undefined);
   assert.equal(normalizeChatGptUrl("https://user:secret@chatgpt.com/c/example"), undefined);
+  assert.equal(normalizeChatGptUrl("https://chatgpt.com/c/example?token=secret"), undefined);
+  assert.equal(normalizeChatGptUrl("https://chatgpt.com/c/example#private"), undefined);
+});
+
+test("rejects credential-shaped values from local display labels", () => {
+  assert.equal(normalizeLocalLabel("Personal Plus"), "Personal Plus");
+  assert.equal(normalizeLocalLabel("sk-proj-0123456789abcdef0123456789"), undefined);
+  assert.equal(normalizeLocalLabel("eyJhbGciOiJIUzI1NiJ9.payload123456.signature123456"), undefined);
+  assert.equal(normalizeLocalLabel("user@example.com:password123"), undefined);
 });

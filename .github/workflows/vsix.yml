@@ -63,5 +63,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ann-antigravity-vsix
-          path: extensions/ann-antigravity/out/ann-guardian-control-room-0.2.0.vsix
+          path: extensions/ann-antigravity/out/ann-guardian-control-room-0.3.0.vsix
           if-no-files-found: error

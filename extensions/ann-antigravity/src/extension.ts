@@ -1,9 +1,13 @@
 import * as vscode from "vscode";
 
+import { AccountCenterProvider } from "./account-center-provider";
 import { AnnTreeProvider } from "./ann-tree-provider";
 import { registerCommands } from "./commands";
 import { readGitContext } from "./git-branch";
+import { projectByRoot, readLocalWorkspace } from "./local-workspace";
 import { chooseAnnProjectRoot, detectAnnProjectRoots } from "./project-detector";
+import { inspectProjectRoot } from "./project-root-status";
+import { ProjectsTreeProvider } from "./projects-tree-provider";
 import { readProjectState } from "./state-reader";
 import { AnnStatusBar } from "./status-bar";
 import { describeTerminalReadiness } from "./terminal-readiness";
@@ -12,7 +16,9 @@ import { WATCHED_ANN_PATHS } from "./ann-files";
 import { ControlRoomSnapshot } from "./view-model";
 
 class AnnControlRoom implements vscode.Disposable {
-  private readonly treeProvider = new AnnTreeProvider();
+  private readonly treeProvider: AnnTreeProvider;
+  private readonly accountCenterProvider: AccountCenterProvider;
+  private readonly projectsTreeProvider: ProjectsTreeProvider;
   private readonly statusBar = new AnnStatusBar();
   private readonly disposables: vscode.Disposable[] = [];
   private watchers: vscode.FileSystemWatcher[] = [];
@@ -20,14 +26,24 @@ class AnnControlRoom implements vscode.Disposable {
   private debounceTimer: NodeJS.Timeout | undefined;
 
   public constructor(private readonly context: vscode.ExtensionContext) {
+    const localWorkspace = readLocalWorkspace(context.globalState);
     this.currentSnapshot = {
       profile: readLocalUserProfile(context.globalState),
       terminal: describeTerminalReadiness(undefined, vscode.env.shell),
+      localWorkspace,
+      registeredProjects: [],
     };
+    this.treeProvider = new AnnTreeProvider(this.currentSnapshot);
+    this.accountCenterProvider = new AccountCenterProvider(this.currentSnapshot);
+    this.projectsTreeProvider = new ProjectsTreeProvider(this.currentSnapshot);
     this.disposables.push(
       this.treeProvider,
+      this.accountCenterProvider,
+      this.projectsTreeProvider,
       this.statusBar,
       vscode.window.registerTreeDataProvider("annGuardian.controlRoom", this.treeProvider),
+      vscode.window.registerTreeDataProvider("annGuardian.accountCenter", this.accountCenterProvider),
+      vscode.window.registerTreeDataProvider("annGuardian.projects", this.projectsTreeProvider),
       vscode.window.onDidChangeActiveTextEditor(() => this.scheduleRefresh()),
       vscode.workspace.onDidChangeWorkspaceFolders(() => {
         this.rebuildWatchers();
@@ -43,21 +59,39 @@ class AnnControlRoom implements vscode.Disposable {
 
   public async refresh(): Promise<void> {
     const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
+    const localWorkspace = readLocalWorkspace(this.context.globalState);
     const detectedRoots = await detectAnnProjectRoots(workspaceRoots);
     const activeFile = vscode.window.activeTextEditor?.document.uri.scheme === "file"
       ? vscode.window.activeTextEditor.document.uri.fsPath
       : undefined;
-    const projectRoot = chooseAnnProjectRoot(detectedRoots, activeFile);
+    const registeredWorkspaceRoots = workspaceRoots.filter((root) => projectByRoot(localWorkspace, root));
+    const projectRoot = chooseAnnProjectRoot(
+      detectedRoots.length > 0 ? detectedRoots : registeredWorkspaceRoots,
+      activeFile,
+    );
 
     const profile = readLocalUserProfile(this.context.globalState);
+    const registeredProjects = await Promise.all(
+      localWorkspace.projects.map(async (project) => ({
+        project,
+        inspection: await inspectProjectRoot(project.projectRoot),
+      })),
+    );
     let snapshot: ControlRoomSnapshot = {
       profile,
       terminal: describeTerminalReadiness(undefined, vscode.env.shell),
+      localWorkspace,
+      registeredProjects,
     };
     if (projectRoot) {
       const state = await readProjectState(projectRoot);
       const git = await readGitContext(projectRoot, state.activeBranch);
       const mentorLink = readChatGptMentorLink(this.context.globalState, projectRoot);
+      const currentRegisteredProject = projectByRoot(localWorkspace, projectRoot);
+      const currentProjectInspection = currentRegisteredProject
+        ? registeredProjects.find(({ project }) => project.projectId === currentRegisteredProject.projectId)?.inspection
+          ?? await inspectProjectRoot(projectRoot)
+        : await inspectProjectRoot(projectRoot);
       snapshot = {
         projectRoot,
         state,
@@ -65,11 +99,17 @@ class AnnControlRoom implements vscode.Disposable {
         profile,
         mentorLink,
         terminal: describeTerminalReadiness(projectRoot, vscode.env.shell),
+        localWorkspace,
+        currentRegisteredProject,
+        currentProjectInspection,
+        registeredProjects,
       };
     }
 
     this.currentSnapshot = snapshot;
     this.treeProvider.update(snapshot);
+    this.accountCenterProvider.update(snapshot);
+    this.projectsTreeProvider.update(snapshot);
     this.statusBar.update(snapshot);
   }
 

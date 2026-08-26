@@ -1,8 +1,8 @@
 {
   "name": "ann-guardian-control-room",
   "displayName": "ANN Guardian Home",
-  "description": "User-first ANN current context and explicit local actions for Antigravity IDE and VS Code.",
-  "version": "0.2.0",
+  "description": "Local-first ANN identity, personal project, and current-context manager for Antigravity IDE and VS Code.",
+  "version": "0.3.0",
   "publisher": "nguyenan53",
   "private": true,
   "license": "UNLICENSED",
@@ -31,6 +31,8 @@
   "main": "./dist/src/extension.js",
   "activationEvents": [
     "onView:annGuardian.controlRoom",
+    "onView:annGuardian.accountCenter",
+    "onView:annGuardian.projects",
     "workspaceContains:.ann/MASTER_PLAN.md"
   ],
   "contributes": {
@@ -77,6 +79,66 @@
         "title": "ANN: Open ChatGPT Mentor"
       },
       {
+        "command": "annGuardian.loginGpt",
+        "title": "ANN: Login GPT in Browser"
+      },
+      {
+        "command": "annGuardian.openChatGpt",
+        "title": "ANN: Open ChatGPT"
+      },
+      {
+        "command": "annGuardian.setGptAccountLabel",
+        "title": "ANN: Set GPT Account Label"
+      },
+      {
+        "command": "annGuardian.changeGptAccount",
+        "title": "ANN: Change GPT Account Context"
+      },
+      {
+        "command": "annGuardian.clearGptAccountContext",
+        "title": "ANN: Clear GPT Account Context"
+      },
+      {
+        "command": "annGuardian.registerCurrentProject",
+        "title": "ANN: Add Current Project to My Projects"
+      },
+      {
+        "command": "annGuardian.openExistingProject",
+        "title": "ANN: Open Existing ANN Project"
+      },
+      {
+        "command": "annGuardian.newPersonalProject",
+        "title": "ANN: New Personal Project"
+      },
+      {
+        "command": "annGuardian.openRegisteredProject",
+        "title": "ANN: Open Registered Project"
+      },
+      {
+        "command": "annGuardian.removeRegisteredProject",
+        "title": "ANN: Remove Project from My Projects"
+      },
+      {
+        "command": "annGuardian.mapProjectGptAccount",
+        "title": "ANN: Map Project GPT Account"
+      },
+      {
+        "command": "annGuardian.configureProjectChatGptLink",
+        "title": "ANN: Link ChatGPT Project"
+      },
+      {
+        "command": "annGuardian.clearProjectChatGptLink",
+        "title": "ANN: Clear ChatGPT Project Link"
+      },
+      {
+        "command": "annGuardian.openProjectChatGptLink",
+        "title": "ANN: Open Project ChatGPT Link"
+      },
+      {
+        "command": "annGuardian.openCurrentProjectChatGptLink",
+        "title": "ANN: Open Current ChatGPT Project"
+      },
+      {
         "command": "annGuardian.runVerification",
         "title": "ANN: Run Verification",
         "icon": "$(run)"
@@ -96,6 +158,14 @@
         {
           "id": "annGuardian.controlRoom",
           "name": "Home"
+        },
+        {
+          "id": "annGuardian.accountCenter",
+          "name": "Account Center"
+        },
+        {
+          "id": "annGuardian.projects",
+          "name": "My Projects"
         }
       ]
     },
@@ -110,6 +180,11 @@
           "command": "annGuardian.runVerification",
           "when": "view == annGuardian.controlRoom",
           "group": "navigation@2"
+        },
+        {
+          "command": "annGuardian.refresh",
+          "when": "view == annGuardian.accountCenter || view == annGuardian.projects",
+          "group": "navigation@1"
         }
       ]
     }
@@ -120,7 +195,7 @@
     "test": "node scripts/run-tests.mjs",
     "check": "npm run typecheck && npm run compile && npm test",
     "prepackage:vsix": "node scripts/prepare-out.mjs",
-    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.2.0.vsix",
+    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.3.0.vsix",
     "verify:vsix": "node scripts/verify-vsix.mjs"
   },
   "devDependencies": {

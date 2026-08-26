@@ -1,4 +1,12 @@
 import type { GitContextDisplay } from "./git-branch";
+import {
+  currentGptAccount,
+  gptAccountById,
+  type LocalAnnProject,
+  type LocalGptAccount,
+  type LocalWorkspaceState,
+} from "./local-workspace";
+import type { ProjectRootInspection } from "./project-root-status";
 import type { ProjectStateDisplay } from "./state-reader";
 import type { TerminalReadiness } from "./terminal-readiness";
 import type { ChatGptMentorLink, LocalUserProfile } from "./user-settings";
@@ -10,6 +18,15 @@ export interface ControlRoomSnapshot {
   readonly profile: LocalUserProfile;
   readonly mentorLink?: ChatGptMentorLink;
   readonly terminal: TerminalReadiness;
+  readonly localWorkspace: LocalWorkspaceState;
+  readonly currentRegisteredProject?: LocalAnnProject;
+  readonly currentProjectInspection?: ProjectRootInspection;
+  readonly registeredProjects: readonly RegisteredProjectDisplay[];
+}
+
+export interface RegisteredProjectDisplay {
+  readonly project: LocalAnnProject;
+  readonly inspection: ProjectRootInspection;
 }
 
 export interface NextActionDisplay {
@@ -26,11 +43,29 @@ export function formatTaskStatus(status: string): string {
     .join(" ");
 }
 
+export function accountForCurrentProject(snapshot: ControlRoomSnapshot): LocalGptAccount | undefined {
+  return gptAccountById(snapshot.localWorkspace, snapshot.currentRegisteredProject?.gptAccountId)
+    ?? currentGptAccount(snapshot.localWorkspace)
+    ?? (snapshot.mentorLink
+      ? { id: "legacy-ux0-link", label: snapshot.mentorLink.accountLabel }
+      : undefined);
+}
+
+export function currentChatGptProject(snapshot: ControlRoomSnapshot): { label: string; url: string } | undefined {
+  const project = snapshot.currentRegisteredProject;
+  if (project?.chatGptProjectLabel && project.chatGptProjectUrl) {
+    return { label: project.chatGptProjectLabel, url: project.chatGptProjectUrl };
+  }
+  return snapshot.mentorLink
+    ? { label: snapshot.mentorLink.projectLabel, url: snapshot.mentorLink.url }
+    : undefined;
+}
+
 export function nextActionFor(snapshot: ControlRoomSnapshot): NextActionDisplay {
   if (!snapshot.projectRoot) {
     return {
-      label: "Open a folder containing .ann/MASTER_PLAN.md.",
-      command: "workbench.action.files.openFolder",
+      label: "Open an existing ANN project or start the New Personal Project wizard.",
+      command: "annGuardian.openExistingProject",
     };
   }
 
@@ -38,6 +73,20 @@ export function nextActionFor(snapshot: ControlRoomSnapshot): NextActionDisplay 
     return {
       label: "Set your local ANN user label.",
       command: "annGuardian.configureUserProfile",
+    };
+  }
+
+  if (!accountForCurrentProject(snapshot)) {
+    return {
+      label: "Configure a local GPT account context for this project.",
+      command: "annGuardian.loginGpt",
+    };
+  }
+
+  if (!snapshot.currentRegisteredProject) {
+    return {
+      label: "Add the current ANN project to My Projects.",
+      command: "annGuardian.registerCurrentProject",
     };
   }
 
@@ -52,10 +101,10 @@ export function nextActionFor(snapshot: ControlRoomSnapshot): NextActionDisplay 
     return { label: "Restore access to PROJECT_STATE.json through ANN Core." };
   }
 
-  if (!snapshot.mentorLink) {
+  if (!currentChatGptProject(snapshot)) {
     return {
-      label: "Link a ChatGPT Mentor project for this ANN project.",
-      command: "annGuardian.configureChatGptMentor",
+      label: "Optionally link a ChatGPT Project to this ANN project.",
+      command: "annGuardian.configureProjectChatGptLink",
     };
   }
 
