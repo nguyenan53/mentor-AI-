@@ -23,6 +23,7 @@ import {
 } from "./local-workspace";
 import { inspectProjectRoot } from "./project-root-status";
 import { readProjectState } from "./state-reader";
+import type { MentorSessionStartResult } from "./mentor-session-manager";
 import {
   USER_PROFILE_STORAGE_KEY,
   normalizeChatGptUrl,
@@ -39,6 +40,7 @@ export const CHATGPT_HOME_URL = "https://chatgpt.com/";
 export interface CommandContext {
   getSnapshot(): ControlRoomSnapshot;
   refresh(): Promise<void>;
+  startAnn(): MentorSessionStartResult;
 }
 
 interface AccountPick extends vscode.QuickPickItem {
@@ -734,6 +736,30 @@ async function openProject(context: CommandContext): Promise<void> {
   await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(root));
 }
 
+async function startAnn(context: CommandContext): Promise<void> {
+  try {
+    await context.refresh();
+  } catch {
+    void vscode.window.showErrorMessage(
+      "ANN could not refresh the current project context. START was not opened and no project data was changed.",
+    );
+    return;
+  }
+
+  const result = context.startAnn();
+  if (result.status === "unavailable") {
+    const next = await vscode.window.showInformationMessage(
+      "START ANN requires a current registered ANN project. Open a project from My Projects first.",
+      "Open My Projects",
+    );
+    if (next === "Open My Projects") {
+      await vscode.commands.executeCommand("annGuardian.projects.focus");
+    }
+  } else if (result.status === "error") {
+    void vscode.window.showErrorMessage("ANN Mentor Console could not be opened. No project data was changed.");
+  }
+}
+
 export function registerCommands(
   extensionContext: vscode.ExtensionContext,
   context: CommandContext,
@@ -760,6 +786,7 @@ export function registerCommands(
     vscode.commands.registerCommand("annGuardian.openCurrentProjectChatGptLink", () => openCurrentProjectChatGptLink(context)),
     vscode.commands.registerCommand("annGuardian.configureChatGptMentor", (projectId) => configureProjectChatGptLink(extensionContext, context, projectId)),
     vscode.commands.registerCommand("annGuardian.openChatGptMentor", () => openCurrentProjectChatGptLink(context)),
+    vscode.commands.registerCommand("annGuardian.startAnn", () => startAnn(context)),
     vscode.commands.registerCommand("annGuardian.runVerification", () => runVerification(context)),
     ...ANN_FILES.map((file) =>
       vscode.commands.registerCommand(file.command, () => openAnnFile(context, file.id)),

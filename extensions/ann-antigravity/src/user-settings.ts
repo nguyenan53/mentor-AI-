@@ -6,12 +6,20 @@ const MENTOR_LINK_STORAGE_PREFIX = "annGuardian.chatGptMentor";
 const MAX_LABEL_LENGTH = 120;
 const CREDENTIAL_VALUE_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
+  /-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\bBearer\s+[A-Za-z0-9._~+/-]+=*/i,
   /\b(?:sk|rk)-[A-Za-z0-9_-]{16,}\b/i,
   /\bgh[pousr]_[A-Za-z0-9]{20,}\b/i,
   /\bAKIA[0-9A-Z]{16}\b/,
+  /\bAIza[0-9A-Za-z_-]{20,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9_-]{10,}\b/i,
+  /\bglpat-[A-Za-z0-9_-]{10,}\b/i,
+  /\bnpm_[A-Za-z0-9]{20,}\b/,
+  /\bya29\.[A-Za-z0-9_-]{20,}\b/,
+  /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/i,
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
   /\b[^\s:@]+@[^\s:@]+:[^\s]+\b/,
+  /\b(?:token|password|passwd|api[_-]?key|access[_-]?token|session[_-]?token|client[_-]?secret)\s*[:=]\s*\S+/i,
 ];
 
 export interface StorageReader {
@@ -32,13 +40,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+export function containsCredentialLikeText(value: unknown): boolean {
+  return typeof value === "string" && CREDENTIAL_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 export function normalizeLocalLabel(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
-  const normalized = value.replace(/[\u0000-\u001f\u007f]/g, " ").trim();
-  if (!normalized || CREDENTIAL_VALUE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+  const normalized = value
+    .normalize("NFKC")
+    .replace(/[\p{Cc}\p{Cf}]/gu, " ")
+    .trim();
+  if (!normalized || containsCredentialLikeText(normalized)) {
     return undefined;
   }
   return normalized.slice(0, MAX_LABEL_LENGTH);

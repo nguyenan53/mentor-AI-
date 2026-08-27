@@ -5,6 +5,7 @@ import { AnnTreeProvider } from "./ann-tree-provider";
 import { registerCommands } from "./commands";
 import { readGitContext } from "./git-branch";
 import { projectByRoot, readLocalWorkspace } from "./local-workspace";
+import { MentorConsoleController } from "./mentor-pseudoterminal";
 import { chooseAnnProjectRoot, detectAnnProjectRoots } from "./project-detector";
 import { inspectProjectRoot } from "./project-root-status";
 import { ProjectsTreeProvider } from "./projects-tree-provider";
@@ -19,6 +20,7 @@ class AnnControlRoom implements vscode.Disposable {
   private readonly treeProvider: AnnTreeProvider;
   private readonly accountCenterProvider: AccountCenterProvider;
   private readonly projectsTreeProvider: ProjectsTreeProvider;
+  private readonly mentorConsole: MentorConsoleController;
   private readonly statusBar = new AnnStatusBar();
   private readonly disposables: vscode.Disposable[] = [];
   private watchers: vscode.FileSystemWatcher[] = [];
@@ -36,10 +38,15 @@ class AnnControlRoom implements vscode.Disposable {
     this.treeProvider = new AnnTreeProvider(this.currentSnapshot);
     this.accountCenterProvider = new AccountCenterProvider(this.currentSnapshot);
     this.projectsTreeProvider = new ProjectsTreeProvider(this.currentSnapshot);
+    this.mentorConsole = new MentorConsoleController(
+      () => this.currentSnapshot,
+      () => this.refresh(),
+    );
     this.disposables.push(
       this.treeProvider,
       this.accountCenterProvider,
       this.projectsTreeProvider,
+      this.mentorConsole,
       this.statusBar,
       vscode.window.registerTreeDataProvider("annGuardian.controlRoom", this.treeProvider),
       vscode.window.registerTreeDataProvider("annGuardian.accountCenter", this.accountCenterProvider),
@@ -54,6 +61,7 @@ class AnnControlRoom implements vscode.Disposable {
     registerCommands(context, {
       getSnapshot: () => this.currentSnapshot,
       refresh: () => this.refresh(),
+      startAnn: () => this.mentorConsole.start(),
     });
   }
 
@@ -107,6 +115,11 @@ class AnnControlRoom implements vscode.Disposable {
     }
 
     this.currentSnapshot = snapshot;
+    if (this.mentorConsole.synchronize() === "closed-stale") {
+      void vscode.window.showInformationMessage(
+        "The ANN project context changed. The previous Mentor Console was closed; run START ANN again.",
+      );
+    }
     this.treeProvider.update(snapshot);
     this.accountCenterProvider.update(snapshot);
     this.projectsTreeProvider.update(snapshot);
