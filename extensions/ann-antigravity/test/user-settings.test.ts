@@ -56,8 +56,20 @@ test("accepts only credential-free HTTPS ChatGPT URLs", () => {
 });
 
 test("rejects credential-shaped values from local display labels", () => {
+  const openAiTokenFixture = ["sk", "proj", "0123456789abcdef0123456789"].join("-");
+  const googleTokenFixture = ["AIza", "SyDUMMYSECRET1234567890"].join("");
+  const slackTokenFixture = ["xoxb", "123456789012", "abcdefghijklmnop"].join("-");
+  const gitLabTokenFixture = ["glpat", "abcdefghijklmnopqrst"].join("-");
+  const npmTokenFixture = ["npm", "abcdefghijklmnopqrstuvwxyz0123456789"].join("_");
+
   assert.equal(normalizeLocalLabel("Personal Plus"), "Personal Plus");
-  assert.equal(normalizeLocalLabel("sk-proj-0123456789abcdef0123456789"), undefined);
+  assert.equal(normalizeLocalLabel(openAiTokenFixture), undefined);
   assert.equal(normalizeLocalLabel("eyJhbGciOiJIUzI1NiJ9.payload123456.signature123456"), undefined);
   assert.equal(normalizeLocalLabel("user@example.com:password123"), undefined);
+  assert.equal(normalizeLocalLabel(googleTokenFixture), undefined);
+  assert.equal(normalizeLocalLabel(slackTokenFixture), undefined);
+  assert.equal(normalizeLocalLabel(gitLabTokenFixture), undefined);
+  assert.equal(normalizeLocalLabel(npmTokenFixture), undefined);
+  assert.equal(normalizeLocalLabel("token=qwerty12345"), undefined);
+  assert.equal(normalizeLocalLabel("token\u200d=qwerty12345"), undefined);
 });

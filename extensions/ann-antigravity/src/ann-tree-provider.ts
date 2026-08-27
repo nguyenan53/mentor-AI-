@@ -90,8 +90,17 @@ export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem>, vs
     );
 
     const annProjectSection = projectRoot
-      ? new AnnTreeItem("CURRENT ANN PROJECT", [
-          contextItem("Project", state?.projectName ?? currentRegisteredProject?.projectName ?? "Project name unavailable"),
+      ? new AnnTreeItem("CURRENT PROJECT", [
+          contextItem("Project", currentRegisteredProject?.projectName ?? state?.projectName ?? "Project name unavailable"),
+          ...(currentRegisteredProject
+            ? [commandItem("▶ START ANN", "annGuardian.startAnn")]
+            : [
+                contextItem(
+                  "START ANN",
+                  "Unavailable — register this project in My Projects first",
+                  "annGuardian.startAnn",
+                ),
+              ]),
           contextItem("Root", projectRoot, "annGuardian.openProject", projectRoot),
           contextItem(
             "Personal registry",
@@ -110,13 +119,14 @@ export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem>, vs
             terminal.description,
           ),
         ])
-      : new AnnTreeItem("CURRENT ANN PROJECT", [
+      : new AnnTreeItem("CURRENT PROJECT", [
           contextItem(
             "Status",
             "No ANN project selected — open an existing project or start the wizard",
             "annGuardian.openExistingProject",
           ),
           commandItem("Open My Projects", "annGuardian.projects.focus"),
+          commandItem("▶ START ANN", "annGuardian.startAnn"),
           commandItem("New Personal Project", "annGuardian.newPersonalProject"),
         ]);
 
@@ -153,7 +163,7 @@ export class AnnTreeProvider implements vscode.TreeDataProvider<AnnTreeItem>, vs
         currentProjectInspection?.status === "ready" ? "annGuardian.openMasterPlan" : undefined,
         currentProjectInspection?.status === "ready"
           ? "The authority marker exists. This is not a Guardian decision."
-          : "UX0.5 never creates or overwrites project governance.",
+          : "UX1 never creates or overwrites project governance.",
       ),
     ]);
 

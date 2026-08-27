@@ -1,8 +1,8 @@
 {
   "name": "ann-guardian-control-room",
   "displayName": "ANN Guardian Home",
-  "description": "Local-first ANN identity, personal project, and current-context manager for Antigravity IDE and VS Code.",
-  "version": "0.3.0",
+  "description": "Local-first ANN project context and read-only Mentor Console for Antigravity IDE and VS Code.",
+  "version": "0.4.0",
   "publisher": "nguyenan53",
   "private": true,
   "license": "UNLICENSED",
@@ -23,7 +23,8 @@
     "guardian",
     "antigravity",
     "control-room",
-    "home"
+    "home",
+    "mentor-console"
   ],
   "extensionKind": [
     "workspace"
@@ -33,6 +34,7 @@
     "onView:annGuardian.controlRoom",
     "onView:annGuardian.accountCenter",
     "onView:annGuardian.projects",
+    "onCommand:annGuardian.startAnn",
     "workspaceContains:.ann/MASTER_PLAN.md"
   ],
   "contributes": {
@@ -139,6 +141,11 @@
         "title": "ANN: Open Current ChatGPT Project"
       },
       {
+        "command": "annGuardian.startAnn",
+        "title": "ANN: Start ANN",
+        "icon": "$(play)"
+      },
+      {
         "command": "annGuardian.runVerification",
         "title": "ANN: Run Verification",
         "icon": "$(run)"
@@ -195,7 +202,7 @@
     "test": "node scripts/run-tests.mjs",
     "check": "npm run typecheck && npm run compile && npm test",
     "prepackage:vsix": "node scripts/prepare-out.mjs",
-    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.3.0.vsix",
+    "package:vsix": "vsce package --no-dependencies --out out/ann-guardian-control-room-0.4.0.vsix",
     "verify:vsix": "node scripts/verify-vsix.mjs"
   },
   "devDependencies": {

@@ -45,6 +45,6 @@ export async function inspectProjectRoot(
 
   return {
     status: "missing-master-plan",
-    masterPlanLabel: "Missing — initialization is not available in UX0.5",
+    masterPlanLabel: "Missing — initialization is not available in UX1",
   };
 }

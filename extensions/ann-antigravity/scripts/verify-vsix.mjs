@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const artifactPath = join(extensionRoot, 'out', 'ann-guardian-control-room-0.3.0.vsix');
+const artifactPath = join(extensionRoot, 'out', 'ann-guardian-control-room-0.4.0.vsix');
 const artifactStat = await stat(artifactPath);
 
 assert.ok(artifactStat.isFile(), 'Expected VSIX artifact is not a file.');
@@ -21,11 +21,15 @@ const manifest = JSON.parse(await manifestEntry.async('string'));
 const normalizedMain = String(manifest.main ?? '').replace(/^\.\//, '').replaceAll('\\', '/');
 
 assert.equal(manifest.name, 'ann-guardian-control-room');
-assert.equal(manifest.version, '0.3.0');
+assert.equal(manifest.version, '0.4.0');
 assert.equal(manifest.displayName, 'ANN Guardian Home');
 assert.ok(
   manifest.activationEvents?.includes('onView:annGuardian.controlRoom'),
   'UX0 Home view does not have an explicit activation event.',
+);
+assert.ok(
+  manifest.activationEvents?.includes('onCommand:annGuardian.startAnn'),
+  'UX1 START ANN command does not have an explicit activation event.',
 );
 assert.equal(
   manifest.contributes?.views?.annGuardian?.find((view) => view.id === 'annGuardian.controlRoom')?.name,
@@ -60,6 +64,7 @@ for (const requiredCommand of [
   'annGuardian.mapProjectGptAccount',
   'annGuardian.configureProjectChatGptLink',
   'annGuardian.openProjectChatGptLink',
+  'annGuardian.startAnn',
 ]) {
   assert.ok(contributedCommands.has(requiredCommand), `VSIX is missing UX0 command: ${requiredCommand}`);
 }
@@ -74,8 +79,12 @@ for (const requiredEntrypoint of [
   'extension/dist/src/local-workspace.js',
   'extension/dist/src/projects-tree-provider.js',
   'extension/dist/src/project-root-status.js',
+  'extension/dist/src/mentor-console-model.js',
+  'extension/dist/src/mentor-console-session.js',
+  'extension/dist/src/mentor-session-manager.js',
+  'extension/dist/src/mentor-pseudoterminal.js',
 ]) {
-  assert.ok(archivePaths.includes(requiredEntrypoint), `VSIX is missing UX0.5 entrypoint: ${requiredEntrypoint}`);
+  assert.ok(archivePaths.includes(requiredEntrypoint), `VSIX is missing required entrypoint: ${requiredEntrypoint}`);
 }
 
 for (const archivePath of archivePaths) {
